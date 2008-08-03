@@ -1,0 +1,116 @@
+#!/usr/bin/perl
+#---------------------------------------------------------------------
+use strict;
+use warnings;
+our $VERSION = "0.01";
+
+use RSSycklr;
+use Getopt::Long ();
+use Pod::Usage qw( pod2usage );
+use Carp;
+#---------------------------------------------------------------------
+my ( $opt_versions, $opt_versions_long, $opt_man, $opt_help,
+     $opt_config, $opt_output );
+
+Getopt::Long::GetOptions(
+                         'help'          => \$opt_help,
+                         'man'           => \$opt_man,
+                         'versions'      => \$opt_versions,
+#                         'VERSIONS'      => \$opt_versions_long,
+                         'config_file=s' => \$opt_config,
+                         'out=s'         => \$opt_output,
+                         );
+
+pod2usage(-verbose => 1) && exit(0) if $opt_help;
+pod2usage(-verbose => 2) && exit(0) if $opt_man;
+versions() && exit(0) if $opt_versions || $opt_versions_long;
+
+die "config_file argument is required\n" unless $opt_config;
+die "config_file '$opt_config' does not exist\n" unless -e $opt_config;
+die "config_file '$opt_config' is not readable\n" unless -r _;
+
+my $rssycklr = RSSycklr->new( config => $opt_config );
+#$rssycklr->config($opt_config);
+
+# print $rssycklr->template;
+# use YAML;print Dump $rssycklr->template;
+
+binmode STDOUT, ":utf8";
+$rssycklr->process($rssycklr->template,
+                   {
+                       rssycklr => $rssycklr,
+                   },
+                   $opt_output
+                   )
+    or croak $rssycklr->tt2->error();
+
+exit 0;
+
+#---------------------------------------------------------------------
+sub versions {
+    print
+        "\nVersion info\n",
+        "       RSSycklr --> $RSSycklr::VERSION\n",
+        "           perl --> $]\n",
+        "             OS --> $^O\n",
+        "       rssycklr --> $main::VERSION\n",
+        "      Called as --> $0\n",
+        "\n";
+
+    return 1 unless $opt_versions_long;
+
+    for my $mod ( sort keys %INC )
+    {
+        no strict "refs";
+        no warnings "uninitialized";
+        $mod =~ s,/,::,g;
+        $mod =~ s,\.pm,,g;
+        printf("%50s --> %s\n",
+               $mod,
+               ${$mod . "::VERSION"} || "-"
+               );
+    }
+    1;
+}
+
+
+
+__DATA__
+
+=head1 NAME
+
+rssycklr - command line tool for basic interaction with L<RSSycklr>.
+
+=head1 SYNOPSIS
+
+    rssycklr -c ./config_file.yml [-o /www/html_snippet.html]
+
+See L<RSSycklr/CONFIGURATION> for C<-config_file> options.
+
+=head1 OPTIONS
+
+=over 8
+
+=item B<-help>
+
+Print a brief help message and exits.
+
+=item B<-man>
+
+Prints the manual page and exits.
+
+=back
+
+=head1 DESCRIPTION
+
+asdf
+
+=head1 AUTHOR
+
+asdf
+
+=head1 LICENSE
+
+asdf
+
+=cut
