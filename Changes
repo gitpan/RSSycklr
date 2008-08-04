@@ -1,5 +1,9 @@
 Revision history for RSSycklr
 
+0.02    2008
+        - Improved Pod for 'rssycklr.' Didn't mean to ship it with
+          such bad docs.
+
 0.01    20080803
         - Holy cats is Mouse/Moose hot. This is an adaptation of a
           script I've been using. It's the kind of thing that normally

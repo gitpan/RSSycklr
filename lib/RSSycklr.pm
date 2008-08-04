@@ -12,7 +12,7 @@ use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 has "keep_tags" => (
                     is => "rw",
@@ -394,7 +394,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.01
+0.02
 
 =head1 SYNOPSIS
 
@@ -409,7 +409,8 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
  
  my $rsklr = RSSycklr->new();
  
- $rsklr->load_config({ feeds => \@feeds });
+ $rsklr->load_config({ feeds => \@feeds,
+                       title_only => 1 });
  
  while ( my $feed = $rsklr->next() )
  {

@@ -2,7 +2,7 @@
 #---------------------------------------------------------------------
 use strict;
 use warnings;
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 use RSSycklr;
 use Getopt::Long ();
@@ -31,9 +31,6 @@ die "config_file '$opt_config' is not readable\n" unless -r _;
 
 my $rssycklr = RSSycklr->new( config => $opt_config );
 #$rssycklr->config($opt_config);
-
-# print $rssycklr->template;
-# use YAML;print Dump $rssycklr->template;
 
 binmode STDOUT, ":utf8";
 $rssycklr->process($rssycklr->template,
@@ -99,18 +96,66 @@ Print a brief help message and exits.
 
 Prints the manual page and exits.
 
+=item B<-config_file>
+
+Path to a L<YAML> configuration file.
+
+=item B<-out>
+
+A file name for output. Prints to STDOUT if there is no C<-out> specified.
+
+=item B<-version>
+
+Prints version information.
+
 =back
 
 =head1 DESCRIPTION
 
-asdf
+This is a simple way to use the L<RSSycklr> module without having to write code. It can be used for things like writing an include file on a crontab.
+
+[I'll try to expand this in the future.]
 
 =head1 AUTHOR
 
-asdf
+Ashley Pond V, C<< <ashley@cpan.org> >>.
 
-=head1 LICENSE
+=head1 BUGS
 
-asdf
+I love good feedback and bug reports. Please report any bugs or feature requests directly to me via email or through the web interface at L<http://rt.cpan.org/Public/Dist/Display.html?Name=RSSycklr>.
+
+=head1 SEE ALSO
+
+L<RSSycklr>.
+
+=head1 COPYRIGHT & LICENSE
+
+Copyright (E<copy>) 2008 Ashley Pond V.
+
+This program is free software; you can redistribute it or modify it or
+both under the same terms as Perl itself.
+
+=head1 DISCLAIMER OF WARRANTY
+
+Because this software is licensed free of charge, there is no warranty
+for the software, to the extent permitted by applicable law. Except
+when otherwise stated in writing the copyright holders or other
+parties provide the software "as is" without warranty of any kind,
+either expressed or implied, including, but not limited to, the
+implied warranties of merchantability and fitness for a particular
+purpose. The entire risk as to the quality and performance of the
+software is with you. Should the software prove defective, you assume
+the cost of all necessary servicing, repair, or correction.
+
+In no event unless required by applicable law or agreed to in writing
+will any copyright holder, or any other party who may modify and/or
+redistribute the software as permitted by the above licence, be liable
+to you for damages, including any general, special, incidental, or
+consequential damages arising out of the use or inability to use the
+software (including but not limited to loss of data or data being
+rendered inaccurate or losses sustained by you or third parties or a
+failure of the software to operate with any other software), even if
+such holder or other party has been advised of the possibility of such
+damages.
 
 =cut

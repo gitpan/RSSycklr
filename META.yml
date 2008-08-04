@@ -5,11 +5,11 @@ author:
 build_requires:
   ExtUtils::MakeMaker: 6.11
 distribution_type: module
-generated_by: 'Module::Install version 0.75'
+generated_by: 'Module::Install version 0.760'
 license: perl
 meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.3.html
-  version: 1.3
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
 name: RSSycklr
 no_index:
   directory:
@@ -31,4 +31,6 @@ requires:
   XML::Feed: 0
   XML::LibXML: 0
   YAML: 0
-version: 0.01
+resources:
+  license: http://dev.perl.org/licenses/
+version: 0.02
