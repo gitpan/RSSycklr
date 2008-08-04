@@ -2,7 +2,7 @@
 #---------------------------------------------------------------------
 use strict;
 use warnings;
-our $VERSION = "0.02";
+our $VERSION = "0.03";
 
 use RSSycklr;
 use Getopt::Long ();
@@ -25,7 +25,7 @@ pod2usage(-verbose => 1) && exit(0) if $opt_help;
 pod2usage(-verbose => 2) && exit(0) if $opt_man;
 versions() && exit(0) if $opt_versions || $opt_versions_long;
 
-die "config_file argument is required\n" unless $opt_config;
+die "config_file argument is required. Try 'rssycklr -help'\n" unless $opt_config;
 die "config_file '$opt_config' does not exist\n" unless -e $opt_config;
 die "config_file '$opt_config' is not readable\n" unless -r _;
 
@@ -76,7 +76,7 @@ __DATA__
 
 =head1 NAME
 
-rssycklr - command line tool for basic interaction with L<RSSycklr>.
+rssycklr - Command line tool for basic interaction with L<RSSycklr>.
 
 =head1 SYNOPSIS
 

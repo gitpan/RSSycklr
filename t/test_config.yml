@@ -3,6 +3,7 @@ excerpt_length: 200
 hours_back: 24
 max_display: 2
 title_only: 1
+timeout: 1
 feeds:
   - uri: http://green.yahoo.com/rss/news
     title_only: ~

@@ -2,7 +2,7 @@ package RSSycklr;
 
 use Mouse;
 no warnings "uninitialized";
-use Carp;
+use Carp qw( carp confess croak );
 use YAML ();
 use XML::Feed ();
 use HTML::Truncate;
@@ -12,7 +12,7 @@ use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
 
-our $VERSION = "0.02";
+our $VERSION = "0.03";
 
 has "keep_tags" => (
                     is => "rw",
@@ -172,8 +172,20 @@ sub next : method {
     my $uri = blessed($info->{uri}) eq "URI" ? 
         $info->{uri} : URI->new($info->{uri});
 
-    my $xml_feed = XML::Feed->parse($uri)
-        or confess(XML::Feed->errstr);
+    my $xml_feed;
+    eval {
+        local $SIG{ALRM} = sub { croak "Feed request timeout\n" };
+        alarm( $info->{timeout} || $self->config->{timeout} || 10 );
+        $xml_feed = XML::Feed->parse($uri)
+            or confess(XML::Feed->errstr);
+        alarm(0);
+    };
+    if ( $@ )
+    {
+        
+        carp $@ || ( "Unknown error parsing " . $info->{uri} );
+        return $self->next;
+    }
 
     my $hours_back = DateTime
         ->now( time_zone => 'floating' )
@@ -394,7 +406,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.02
+0.03
 
 =head1 SYNOPSIS
 
@@ -409,8 +421,8 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
  
  my $rsklr = RSSycklr->new();
  
- $rsklr->load_config({ feeds => \@feeds,
-                       title_only => 1 });
+ $rsklr->config({ feeds => \@feeds,
+                  title_only => 1 });
  
  while ( my $feed = $rsklr->next() )
  {
@@ -431,7 +443,7 @@ This is a more of a mini-app engine than a pure module. RSSycklr is a package th
 
 This is probably easier to show with examples than explain. This is the part where I show, or maybe explain, someday. For now, take a look at the L</CONFIGURATION> sample below and the source for the tool 'rssycklr' that comes with this distribution.
 
-XHTML validation is currently based on "-//W3C//DTD XHTML 1.0 Transitional//EN" and errors are B<not fatal>. They L<Carp/carp> right now. You will be able to pick your DTD eventually and decide if errors are fatals or skip the entry or just complain.
+XHTML validation is currently based on "-//W3C//DTD XHTML 1.0 Transitional//EN" and errors are B<not fatal>. They L<carp|Carp/carp> right now. You will be able to pick your DTD eventually and decide if errors are fatals or skip the entry or just complain.
 
 =head1 METHODS
 
@@ -443,11 +455,11 @@ Create an L<RSSycklr> object.
 
 =item B<load_config>
 
-Takes a L<YAML> file name, or string, or a Perl data structure. It must conform to the configuration format. No validation of input is done at this point.
+Takes a L<YAML> file name or string. It must conform to the configuration format. No validation of input is done at this point. More config options will be probably be added soon.
 
 =item B<config>
 
-Returns the hash reference of the configuration and raw feed data.
+Set/get hash reference of the configuration and raw feed data.
 
 =item B<add_feeds>
 
@@ -611,9 +623,10 @@ Configuration is a hash in two levels. The top level contains defaults. The key 
  hours_back: 30            # master setting for oldest entry age
  max_feeds: 10             # stop fetching at this point
  max_display: 3            # master setting for entries to keep per feed
+ timeout: 10               # seconds to try a feed fetch before skipping
  ellipsis: \x{2026}        # ellipsis on truncated ledes/titles
  read_more: [more]         # text for "read more" link
- class: rssycklr           # css class for top <div> wrapper
+ css_class: rssycklr       # css class for top <div> wrapper
  title_length: ~           # not implemented
  excerpt_style: dl|p|br|ul # not implemented, dl/dt/dd happens now
  title_style: ul|p|br      # not implemented, ul/li happens now
@@ -651,13 +664,17 @@ Maximum age of feed entries to include.
 
 How many entries from a feed to parse and keep.
 
+=item B<timeout>
+
+How many seconds to wait for a feed fetch to return before skipping it.
+
 =item B<ellipsis>
 
 =item B<read_more>
 
 Text for "read more" link.
 
-=item B<class>
+=item B<css_class>
 
 The CSS class for the top C<< <div/> >> wrapper.
 
@@ -724,7 +741,11 @@ Ashley Pond V, C<< <ashley@cpan.org> >>.
 
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
 
+Text only option for ledes? Makes it easier to work on that setting C<keep_tags> to empty.
+
 Straighten out and make the validation controllable.
+
+Make a master timeout vs a feed level timeout? No...
 
 Make utf8 a settable...?
 
@@ -734,9 +755,9 @@ Make attribute filter configurable.
 
 More tests.
 
-Implement anything in the configuration example which reads, "not implemented." E.g., make the style/tags configurable for titles/ledes; e.g., dl|p|br|ul.
+Throw errors for extraneous or malformed config data.
 
-Timeout feed fetches. Maybe try to get Benjamin to allow a UA setting for his stuff.
+Implement anything in the configuration example which reads, "not implemented." E.g., make the style/tags configurable for titles/ledes; e.g., dl|p|br|ul.
 
 Submit a patch, or ticket, to Benjamin for a content_type L<XML::Feed::Entry>. We're just assuming it's HTML.
 

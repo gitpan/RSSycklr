@@ -1,6 +1,15 @@
 Revision history for RSSycklr
 
-0.02    2008
+0.03    20080804
+        - Updated half-done 0.02 entry date below. Sigh.
+        - Fixed synopsis.t output a little.
+        - Put timeout on XML::Feed->parse() requests.
+        - Updated docs a bit and though load_config will still handle
+          a Perl structure, it's not in the doc now and won't do it
+          much longer.
+        - Considering name change to App::RSSycklr... Not sure.
+
+0.02    20080803
         - Improved Pod for 'rssycklr.' Didn't mean to ship it with
           such bad docs.
 

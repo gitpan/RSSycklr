@@ -27,7 +27,7 @@ SKIP: {
 
     diag( $synopsis ) if $ENV{TEST_VERBOSE};
 
-    my $ok = eval "$synopsis; print qq{\n}; 1;";
+    my $ok = eval "$synopsis; 1";
 
     ok( $ok,  "Synopsis eval'd" );
 
