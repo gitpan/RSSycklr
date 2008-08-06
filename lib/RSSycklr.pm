@@ -12,7 +12,7 @@ use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
 
-our $VERSION = "0.04";
+our $VERSION = "0.05";
 
 has "keep_tags" => (
                     is => "rw",
@@ -270,7 +270,7 @@ sub next : method {
 
             my $content = "";
             $content .= $_->serialize(1) for $body->childNodes();
-            my $more = chr(8230) . '<a style="font-size:10px" href="' . $entry->link . '">[more]</a>';
+            my $more = chr(8230) . '<a class="readmore" href="' . $entry->link . '">[more]</a>';
             my $output = $self->truncate( $content,
                                           $excerpt_length,
                                           $more );
@@ -369,6 +369,23 @@ sub _strip_tags {
         }
         $node->replaceNode($frag);
     }
+
+    return 1 unless $keep->{br};
+
+    my @outer = $root->findnodes("body/*");
+
+  FORWARD:
+    for my $br ( @outer ) {
+        last FORWARD unless $br and $br->tagName eq "br";
+        $br->parentNode->removeChild($br);
+    }
+
+  BACKWARD:
+    for my $br ( reverse @outer ) {
+        last BACKWARD unless $br and $br->tagName eq "br";
+        $br->parentNode->removeChild($br);
+    }
+    return 1;
 }
 
 package RSSycklr::Feed;
@@ -423,7 +440,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.04
+0.05
 
 =head1 SYNOPSIS
 
@@ -515,7 +532,7 @@ In void context, it processes/prints to STDOUT.
 
 The list (stored as a hash ref) of tags which will be kept when creating ledes from entry bodies. The default list generally comprises the phrasal tags; e.g., C<< <i/> >>, C<< <q/> >>, C<< <del/> >>, C<< <dfn/> >>, C<< <sup/> >>, et cetera.
 
- perl -MYAML -le '$rsklr = RSSycklr->new; print Dump $rsklr->keep_tags'
+ perl -MRSSycklr -MYAML -le '$rsklr = RSSycklr->new; print Dump $rsklr->keep_tags'
 
 Example: dropping images-
 
@@ -672,6 +689,7 @@ Configuration is a hash in two levels. The top level contains defaults. The key 
    - uri: http://sedition.com/feed/atom
      title_only: 1
      hours_back: 105
+     timeout: 3
    - uri: http://dd.pangyre.org/dd.atom
      excerpt_length: 300
      hours_back: 48
@@ -748,7 +766,6 @@ The image handling is probably the most important part. Feeds might return huge 
 
  .rssycklr {
    font-family: helvetica, sans-serif;
-   font-size: 10px;
  }
  .rssycklr h4 {
    border-bottom: 1px solid #ccc;
@@ -758,7 +775,11 @@ The image handling is probably the most important part. Feeds might return huge 
    color:#039!important;
    text-decoration:none;
  }
- .rssycklr img {
+ .rssycklr a.readmore {
+   text-decoration:none;
+   font-size: 90%;
+ }
+ .rssycklr img { .rssycklr img {
    float: right;
    clear: right;
    width: 90px;
@@ -774,6 +795,8 @@ Ashley Pond V, C<< <ashley@cpan.org> >>.
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
 
 Text only option for ledes? Makes it easier to work on that setting C<keep_tags> to empty.
+
+Put a name field for feeds to override the feed supplied title.
 
 Straighten out and make the validation controllable.
 

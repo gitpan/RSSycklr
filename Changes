@@ -1,8 +1,12 @@
 Revision history for RSSycklr
 
+0.05    20080805
+        - Strip leading and trailing <br/>s when they are in the keep_tags.
+
 0.04    20080805
         - Fixed README. Der...
         - Added as_string and process.t.
+        - Fixed broken command line snippet to see keep_tags.
         - Happy 4 to the VI.
 
 0.03    20080804
