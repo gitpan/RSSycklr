@@ -1,5 +1,10 @@
 Revision history for RSSycklr
 
+0.04    20080805
+        - Fixed README. Der...
+        - Added as_string and process.t.
+        - Happy 4 to the VI.
+
 0.03    20080804
         - Updated half-done 0.02 entry date below. Sigh.
         - Fixed synopsis.t output a little.

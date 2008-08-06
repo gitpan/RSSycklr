@@ -12,7 +12,7 @@ use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 
 has "keep_tags" => (
                     is => "rw",
@@ -46,7 +46,7 @@ has "template" => ( is => "rw",
                     lazy => 1, # not always used
                     default => sub { \<<"                    .";
 <div class="[% css_class || "rssycklr" %]">
-[%-WHILE( feed = rssycklr.next() ) %]
+[%- FOR feed IN rssycklr.feeds() %]
 [%-NEXT UNLESS feed.count %]
 <div>
 <[% feed_title_tag || "h4" %]>
@@ -158,6 +158,23 @@ sub add_feeds : method {
         push @{$self->config->{feeds}}, $info;
     }
     return ( $old + $new ) == @{$self->config->{feeds}};
+}
+
+sub as_string : method {
+    my $self = shift;
+    my $out = "";
+    $self->process($self->template, { rssycklr => $self }, \$out)
+        or confess $self->tt2->error();
+
+    if ( defined wantarray )
+    {
+        return $out;
+    }
+    else
+    {
+        print $out;
+        return 1;
+    }
 }
 
 sub next : method {
@@ -406,7 +423,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.03
+0.04
 
 =head1 SYNOPSIS
 
@@ -478,6 +495,21 @@ Iteration through feeds with delayed execution. Feeds are only fetched and clean
 If you prefer to get your feeds at once in a list or an array ref, use L</feeds>. It iterates on L</next> under the hood, therefore L</next> will be empty after L</feeds> has been called though L</feeds> may be called repeatedly without refetching or parsing. If you L</add_feeds> to add new feeds, next will able to iterate on those and L</feeds> will add them to those already parsed and fetched.
 
 Remember that each feed is a web request and they aren't done in any kind of parallel nature so you could expect a list of 20 feeds to return slowly, maybe very slowly.
+
+=item B<as_string>
+
+Sort of does this-
+
+ $rssycklr->process($rssycklr->template, { rssycklr => $rssycklr })
+       or confess $rssycklr->tt2->error();
+
+Can also be called for a return value, like so-
+
+ my $output = $rssycklr->as_string;
+
+In void context, it processes/prints to STDOUT.
+
+ $rssycklr->as_string;
 
 =item B<keep_tags>
 

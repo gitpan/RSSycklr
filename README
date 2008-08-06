@@ -1,19 +1,6 @@
 RSSycklr
 
-[This is beta software.]
-
-When working with text it is convenient and common to want to truncate
-strings to make them fit a desired context. E.g., you might have a
-menu that is only 100px wide and prefer text doesn't wrap so you'd
-truncate it around 15-30 characters, depending on preference and
-typeface size. This is trivial with plain text and substr() but with
-HTML it is somewhat difficult because whitespace has fluid
-significance and open tags that are not properly closed destroy
-well-formedness and can wreck an entire layout.
-
-RSSycklr attempts to account for those two problems by padding
-truncation for spacing and entities and closing any tags that remain
-open at the point of truncation.
+Please see the Pod.
 
 INSTALLATION
 
@@ -27,7 +14,7 @@ To install this module, run the following commands:
 
 COPYRIGHT AND LICENCE
 
-Copyright 2005 Ashley Pond V
+Copyright Ashley Pond V
 
-This program is free software; you can redistribute it and/or modify it
-under the same terms as Perl itself.
+This program is free software; you can redistribute it and or modify
+it under the same terms as Perl itself.
