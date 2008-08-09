@@ -11,8 +11,9 @@ use DateTime ();
 use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
+use Hash::Merge::Simple qw( merge );
 
-our $VERSION = "0.05";
+our $VERSION = "0.06";
 
 has "keep_tags" => (
                     is => "rw",
@@ -127,10 +128,13 @@ before "feeds" => sub {
 #    }
 #}
 
-has "config" => (
-                 is => "rw",
-                 isa => "HashRef",
-                 );
+sub config : method {
+    my $self = shift;
+    $self->{config} ||= $self->_default_config();
+    my $hash = shift || return $self->{config};
+    $self->{config} = merge $self->{config}, $hash;
+    return $self->{config};
+}
 
 sub load_config : method {
     my $self = shift;
@@ -149,7 +153,7 @@ sub load_config : method {
 sub add_feeds : method {
     my $self = shift;
     my $feeds = shift;
-    my $old = scalar @{$self->{config}->{feeds} || []};
+    my $old = scalar @{$self->config->{feeds} || []};
     my $new = scalar @{$feeds};
     for my $info ( @{$feeds} )
     {
@@ -270,7 +274,14 @@ sub next : method {
 
             my $content = "";
             $content .= $_->serialize(1) for $body->childNodes();
-            my $more = chr(8230) . '<a class="readmore" href="' . $entry->link . '">[more]</a>';
+            my $more = join("",
+                            Encode::decode_utf8($self->config->{ellipsis}),
+                            '<a class="readmore" href="',
+                            $entry->link,
+                            '">', 
+                            Encode::decode_utf8($self->config->{read_more}),
+                            '</a>'
+                            );
             my $output = $self->truncate( $content,
                                           $excerpt_length,
                                           $more );
@@ -388,6 +399,27 @@ sub _strip_tags {
     return 1;
 }
 
+sub _default_config : method {
+    return {
+        excerpt_length => 150,
+        ellipsis => "\x{2026}", # chr(8230),
+        read_more => "[more]",
+        title_only  => undef,
+        hours_back  => 72,
+        max_feeds   => 10,
+#        max_entries => 10,
+        max_display => 3,
+        timeout => 30,
+        css_class => "rssycklr",
+#        title_length => undef,
+#        excerpt_style => dl|p|br|ul
+#        title_style => ul|p|br      # not implemented, ul/li happens now
+#        max_images => 1             # this is hardcoded for now
+        feed_title_tag => "h4",
+        dtd => "xhtml1-transitional.dtd",
+    };
+}
+
 package RSSycklr::Feed;
 use Mouse;
 # require Template;
@@ -440,7 +472,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.05
+0.06
 
 =head1 SYNOPSIS
 
@@ -489,11 +521,11 @@ Create an L<RSSycklr> object.
 
 =item B<load_config>
 
-Takes a L<YAML> file name or string. It must conform to the configuration format. No validation of input is done at this point. More config options will be probably be added soon.
+Takes a L<YAML> file name or string. It must conform to the configuration format. No validation of input is done at this point. More config options will be probably be added soon. As it calls L</config> underneath, loading configuraiton options will be add them to what's already there, not reset them.
 
 =item B<config>
 
-Set/get hash reference of the configuration and raw feed data.
+Set/get hash reference of the configuration and raw feed data. Setting config is additive, each new hash reference is merged with the current config hash reference.
 
 =item B<add_feeds>
 
@@ -779,10 +811,10 @@ The image handling is probably the most important part. Feeds might return huge 
    text-decoration:none;
    font-size: 90%;
  }
- .rssycklr img { .rssycklr img {
+ .rssycklr img {
    float: right;
    clear: right;
-   width: 90px;
+   width: 60px;
    margin: -3px 0 0 3px;
  }
 
@@ -793,6 +825,12 @@ Ashley Pond V, C<< <ashley@cpan.org> >>.
 =head1 TODO
 
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
+
+If abutting tags stripped tags are flow level, insert a newline...? Define the behavior in the config so even a E<para> or something could be inserted. Turn C<< <br/>s >> into newlines?
+
+C<next> should be putting feeds aside for C<feeds>?
+
+Translate tags? To drop blockquote to q and h* to bold, etc?
 
 Text only option for ledes? Makes it easier to work on that setting C<keep_tags> to empty.
 

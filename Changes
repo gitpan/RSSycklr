@@ -1,5 +1,13 @@
 Revision history for RSSycklr
 
+0.06    20080808
+        - Fixed CSS typo in Pod.
+        - Put in Hash::Merge::Simple for config. Made the ellipsis and
+          read_more options work. Docs showed them working but they
+          did not befeore.
+        - Put a little Encode stuff in though frankly I'm not sure
+          it's in the right place.
+
 0.05    20080805
         - Strip leading and trailing <br/>s when they are in the keep_tags.
 
