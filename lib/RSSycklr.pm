@@ -13,7 +13,7 @@ use URI ();
 use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
 
-our $VERSION = "0.06";
+our $VERSION = "0.07";
 
 has "keep_tags" => (
                     is => "rw",
@@ -128,18 +128,27 @@ before "feeds" => sub {
 #    }
 #}
 
+#has "keep_tags" => (
+#                    is => "rw",
+#                    isa => "HashRef",
+
+sub BUILD {
+    my ( $self, $args ) = @_;
+    $self->config($args->{config}) if $args->{config};
+    $self->load_config($args->{load_config}) if $args->{load_config};
+}
+
 sub config : method {
     my $self = shift;
-    $self->{config} ||= $self->_default_config();
-    my $hash = shift || return $self->{config};
-    $self->{config} = merge $self->{config}, $hash;
-    return $self->{config};
+    $self->{_config} ||= $self->_default_config();
+    my $hash = shift || return $self->{_config};
+    $self->{_config} = merge $self->{_config}, $hash;
+    return $self->{_config};
 }
 
 sub load_config : method {
     my $self = shift;
     my $src = shift || return;
-
     my $info = ref($src) ?
         $src : $src !~ /\n/ ?
         YAML::LoadFile($src) : YAML::Load($src);
@@ -157,7 +166,7 @@ sub add_feeds : method {
     my $new = scalar @{$feeds};
     for my $info ( @{$feeds} )
     {
-        confess "URI is missing from feed data for feed: ", Dump($info)
+        confess "URI is missing from feed data for feed: ", YAML::Dump($info)
             unless $info->{uri};
         push @{$self->config->{feeds}}, $info;
     }
@@ -472,7 +481,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.06
+0.07
 
 =head1 SYNOPSIS
 
@@ -591,6 +600,10 @@ The L<XML::LibXML> object.
 =item B<truncater>
 
 The L<HTML::Truncate> object.
+
+=item B<BUILD>
+
+Internal method. To allow C<config> and C<load_config> to be passed as arguments. C<BUILD> runs the methods at initializaiton if you do.
 
 =back
 
