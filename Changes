@@ -1,5 +1,11 @@
 Revision history for RSSycklr
 
+0.08    20081114
+        - Put a default of "" into lede to prevent errors when it's
+          not correctly formed.
+        - Redid alarm handling a little to account for latent failures
+          in XML parsing.
+
 0.07    20080809
         - Qualified namespace with YAML::Dump call.
         - Put in a BUILD so things like Catalyst::Model::Adaptor can

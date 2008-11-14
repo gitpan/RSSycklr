@@ -13,7 +13,7 @@ use URI ();
 use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
 
-our $VERSION = "0.07";
+our $VERSION = "0.08";
 
 has "keep_tags" => (
                     is => "rw",
@@ -51,12 +51,12 @@ has "template" => ( is => "rw",
 [%-NEXT UNLESS feed.count %]
 <div>
 <[% feed_title_tag || "h4" %]>
-<a href="[%-feed.link | html %]">[%-feed.title.replace('&(?!amp;)','&amp;') %]</a>
+<a href="[%-feed.link | html %]">[%-feed.title | html %]</a>
 </[% feed_title_tag || "h4" %]>
 [%-IF feed.entries.0.lede %]
 <dl>
   [%-FOR entry IN feed.entries %]
-<dt><a href="[%-entry.link | html %]">[%-entry.title.replace('&(!amp;)','&amp') %]</a></dt>
+<dt><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></dt>
 <dd>
 [%-entry.lede %]
 </dd>
@@ -65,7 +65,7 @@ has "template" => ( is => "rw",
 [%-ELSE %]
 <ul>
   [%-FOR entry IN feed.entries %]
-    <li><a href="[%-entry.link | html %]">[%-entry.title.replace('&(!amp;)','&amp') %]</a></li>
+    <li><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></li>
   [%-END %]
 </ul>
 [%-END %]
@@ -127,10 +127,6 @@ before "feeds" => sub {
 #...        $_->
 #    }
 #}
-
-#has "keep_tags" => (
-#                    is => "rw",
-#                    isa => "HashRef",
 
 sub BUILD {
     my ( $self, $args ) = @_;
@@ -203,16 +199,17 @@ sub next : method {
         $info->{uri} : URI->new($info->{uri});
 
     my $xml_feed;
-    eval {
+    my $ok = eval {
         local $SIG{ALRM} = sub { croak "Feed request timeout\n" };
         alarm( $info->{timeout} || $self->config->{timeout} || 10 );
-        $xml_feed = XML::Feed->parse($uri)
-            or confess(XML::Feed->errstr);
+                $xml_feed = XML::Feed->parse($uri)
+                    or confess(XML::Feed->errstr);
         alarm(0);
+        1;
     };
-    if ( $@ )
+    alarm(0); # Racing parsing fatals can happen in the XML::Feed space.
+    unless ( $ok == 1 )
     {
-        
         carp $@ || ( "Unknown error parsing " . $info->{uri} );
         return $self->next;
     }
@@ -431,12 +428,13 @@ sub _default_config : method {
 
 package RSSycklr::Feed;
 use Mouse;
+use HTML::Entities;
 # require Template;
 
 has "xml_feed" => ( is => "ro",
                     required => 1,
                     isa => "Object",
-                    handles => [qw( title tagline link copyright
+                    handles => [qw( tagline link copyright
                                     author generator language )],
                     );
 
@@ -452,6 +450,13 @@ sub count : method {
     scalar @{+shift->entries};
 }
 
+# Try guarantee it doesn't return entities.
+sub title : method {
+    my $self = shift;
+    return Encode::decode_utf8( HTML::Entities::decode_entities($self->xml_feed->title) );
+#    $self->xml_feed->title( HTML::decode_entities($self->xml_feed->title) );
+}
+
 package RSSycklr::Feed::Entry;
 use Mouse;
 # require Template;
@@ -464,6 +469,7 @@ has "xml_feed_entry" => ( is => "ro",
 
 has "lede" => ( is => "ro",
                 isa => "Str",
+                default => sub { "" },
               );
 
 has "feed" => ( is => "ro",
@@ -481,7 +487,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.07
+0.08
 
 =head1 SYNOPSIS
 
@@ -840,6 +846,8 @@ Ashley Pond V, C<< <ashley@cpan.org> >>.
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
 
 If abutting tags stripped tags are flow level, insert a newline...? Define the behavior in the config so even a E<para> or something could be inserted. Turn C<< <br/>s >> into newlines?
+
+Test timed out feeds.
 
 C<next> should be putting feeds aside for C<feeds>?
 
