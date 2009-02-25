@@ -1,5 +1,10 @@
 Revision history for RSSycklr
 
+0.09    20090224
+        - Arrrrrrg. Mac case insensitivity got me again. Makefile now
+          lists Getopt::Long, not GetOpt::Long as a requirment.
+        - Couple spelling errors in Pod fixed and that's it.
+
 0.08    20081114
         - Put a default of "" into lede to prevent errors when it's
           not correctly formed.

@@ -17,10 +17,9 @@ requires "DateTime";
 requires "URI";
 requires "Encode";
 requires "Pod::Usage";
-requires "GetOpt::Long";
+requires "Getopt::Long";
 requires "File::ShareDir";
 requires "Hash::Merge::Simple";
-
 
 install_script "bin/rssycklr";
 install_share "dtd";

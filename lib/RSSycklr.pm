@@ -13,7 +13,7 @@ use URI ();
 use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
 
-our $VERSION = "0.08";
+our $VERSION = "0.09";
 
 has "keep_tags" => (
                     is => "rw",
@@ -487,7 +487,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.08
+0.09
 
 =head1 SYNOPSIS
 
@@ -536,7 +536,7 @@ Create an L<RSSycklr> object.
 
 =item B<load_config>
 
-Takes a L<YAML> file name or string. It must conform to the configuration format. No validation of input is done at this point. More config options will be probably be added soon. As it calls L</config> underneath, loading configuraiton options will be add them to what's already there, not reset them.
+Takes a L<YAML> file name or string. It must conform to the configuration format. No validation of input is done at this point. More config options will be probably be added soon. As it calls L</config> underneath, loading configuration options will be add them to what's already there, not reset them.
 
 =item B<config>
 
@@ -609,7 +609,7 @@ The L<HTML::Truncate> object.
 
 =item B<BUILD>
 
-Internal method. To allow C<config> and C<load_config> to be passed as arguments. C<BUILD> runs the methods at initializaiton if you do.
+Internal method. To allow C<config> and C<load_config> to be passed as arguments. C<BUILD> runs the methods at initialization if you do.
 
 =back
 
