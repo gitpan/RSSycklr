@@ -1,5 +1,12 @@
 Revision history for RSSycklr
 
+0.10    20090509
+        - Biggish change: s/(?<=Mo)u(?=se)/o/;
+        - Updated error on feed parse failure to include URI.
+        - Titles are now double decoded because I'm still seeing feeds
+          here and there popping up with &#39; &c in the titles.
+        - Added title_override to feeds.
+
 0.09    20090224
         - Arrrrrrg. Mac case insensitivity got me again. Makefile now
           lists Getopt::Long, not GetOpt::Long as a requirment.

@@ -1,6 +1,5 @@
 package RSSycklr;
-
-use Mouse;
+use Moose;
 no warnings "uninitialized";
 use Carp qw( carp confess croak );
 use YAML ();
@@ -12,8 +11,9 @@ use Scalar::Util qw(blessed);
 use URI ();
 use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
+use Encode;
 
-our $VERSION = "0.09";
+our $VERSION = "0.10";
 
 has "keep_tags" => (
                     is => "rw",
@@ -51,7 +51,7 @@ has "template" => ( is => "rw",
 [%-NEXT UNLESS feed.count %]
 <div>
 <[% feed_title_tag || "h4" %]>
-<a href="[%-feed.link | html %]">[%-feed.title | html %]</a>
+<a href="[%-feed.link | html %]">[%-FILTER html; feed.title_override || feed.title; END %]</a>
 </[% feed_title_tag || "h4" %]>
 [%-IF feed.entries.0.lede %]
 <dl>
@@ -130,8 +130,8 @@ before "feeds" => sub {
 
 sub BUILD {
     my ( $self, $args ) = @_;
-    $self->config($args->{config}) if $args->{config};
-    $self->load_config($args->{load_config}) if $args->{load_config};
+    $self->config(delete $args->{config}) if $args->{config};
+    $self->load_config(delete $args->{load_config}) if $args->{load_config};
 }
 
 sub config : method {
@@ -203,7 +203,7 @@ sub next : method {
         local $SIG{ALRM} = sub { croak "Feed request timeout\n" };
         alarm( $info->{timeout} || $self->config->{timeout} || 10 );
                 $xml_feed = XML::Feed->parse($uri)
-                    or confess(XML::Feed->errstr);
+                    or croak("Could not parse $uri, ", XML::Feed->errstr);
         alarm(0);
         1;
     };
@@ -303,7 +303,9 @@ sub next : method {
 
     return $self->next unless @entry;
 
-    my $feed = RSSycklr::Feed->new( xml_feed => $xml_feed );
+    my $feed = RSSycklr::Feed->new( %{$info},
+                                    ellipsis => $self->config->{ellipsis}, # not sure, weak ref to parent instead?
+                                    xml_feed => $xml_feed, );
 
     $feed->{entries} = [ map { $_->{feed} = $feed; RSSycklr::Feed::Entry->new($_) } @entry ];
 
@@ -427,8 +429,8 @@ sub _default_config : method {
 }
 
 package RSSycklr::Feed;
-use Mouse;
-use HTML::Entities;
+use Moose;
+use HTML::Entities "decode_entities";
 # require Template;
 
 has "xml_feed" => ( is => "ro",
@@ -446,20 +448,27 @@ has "entries" => ( is => "ro",
                    isa => "ArrayRef",
                    );
 
+has "title_override" => ( is => "ro",
+                          isa => "Str",
+                          default => sub { "" },
+                          );
+
 sub count : method {
     scalar @{+shift->entries};
 }
 
-# Try guarantee it doesn't return entities.
 sub title : method {
     my $self = shift;
-    return Encode::decode_utf8( HTML::Entities::decode_entities($self->xml_feed->title) );
-#    $self->xml_feed->title( HTML::decode_entities($self->xml_feed->title) );
+    return $self->{_title} if $self->{_title};
+    # Try to *guarantee* it doesn't return entities.
+    $self->{_title} = decode_entities(decode_entities($self->xml_feed->title));
+    $self->{_title} = Encode::decode_utf8( $self->{_title} );
 }
 
+
+
 package RSSycklr::Feed::Entry;
-use Mouse;
-# require Template;
+use Moose;
 
 has "xml_feed_entry" => ( is => "ro",
                           required => 1,
@@ -487,7 +496,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.09
+0.10
 
 =head1 SYNOPSIS
 
@@ -498,7 +507,9 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
  
  my @feeds = ({ uri => "http://www.xkcd.com/atom.xml",
                 max_display => 1, },
-              { uri => "http://rss.news.yahoo.com/rss/iraq", });
+              { uri => "http://feeds.theonion.com/theonion/daily" },
+              { title_override => "OH NOES, IZ TEH DED",
+                uri => "http://rss.news.yahoo.com/rss/obits", });
  
  my $rsklr = RSSycklr->new();
  
@@ -507,16 +518,12 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
  
  while ( my $feed = $rsklr->next() )
  {
-     print Encode::encode_utf8( $feed->title ), "\n";
+     print Encode::encode_utf8( $feed->title_override || $feed->title ), "\n";
      for my $entry ( $feed->entries )
      {
          print "\t* ", Encode::encode_utf8( $entry->title ), "\n";
      }
  }
- 
- # Wouldn't you like to see more? Yeah, I'll bet you would. Uh... for
- # now, see the source for the tool 'rssycklr' that comes with this
- # distribution.
 
 =head1 DESCRIPTION
 
@@ -639,6 +646,20 @@ L<HTML::Truncate/truncate>.
 
 Calls from L<RSSyckler> objects to L</feeds> and L</next> return C<RSSycklr::Feed> objects. They are based on L<XML::Feed> objects.
 
+=head2 SELECT CONFIGURATION SETTINGS
+
+More configuration settings are shown in the config example.
+
+=over 4
+
+=item B<title_override>
+
+For some feeds, like say a search generated feed from Google, you might get back a title in the XML which is ridiculous for display; e.g., B<"bingo cards" +tacos site:example.org>. In cases likes this it would be nice to provide your own title.
+
+=back
+
+=head2 METHODS
+
 =over 4
 
 =item B<entries>
@@ -718,19 +739,32 @@ This will eventually be replaced by a native method.
 Configuration is a hash in two levels. The top level contains defaults. The key C<feeds> contains per feed settings. You can have C<< max_display => 3 >> in the top, for example, but have C<< max_display => 1 >> and C<< max_display => 10 >> in individual feed data. Leaving C<max_display> out of feed data would mean a feed would fall back to the top default setting C<3>.
 
  ---
- excerpt_length: 110       # length of entry excerpt to keep as "lede"
- title_only: ~             # don't do excerpts, titles, only
- hours_back: 30            # master setting for oldest entry age
- max_feeds: 10             # stop fetching at this point
- max_display: 3            # master setting for entries to keep per feed
- timeout: 10               # seconds to try a feed fetch before skipping
- ellipsis: \x{2026}        # ellipsis on truncated ledes/titles
- read_more: [more]         # text for "read more" link
- css_class: rssycklr       # css class for top <div> wrapper
- title_length: ~           # not implemented
- excerpt_style: dl|p|br|ul # not implemented, dl/dt/dd happens now
- title_style: ul|p|br      # not implemented, ul/li happens now
- max_images: 1             # this is hardcoded for now
+ # length of entry excerpt to keep as "lede"
+ excerpt_length: 110
+ # don't do excerpts, titles, only
+ title_only: ~
+ # master setting for oldest entry age
+ hours_back: 30
+ # stop fetching at this point
+ max_feeds: 10
+ # master setting for entries to keep per feed
+ max_display: 3
+ # seconds to try a feed fetch before skipping
+ timeout: 10
+ # ellipsis on truncated ledes/titles
+ ellipsis: " "
+ # text for "read more" link
+ read_more: [more]
+ # css class for top <div> wrapper
+ css_class: rssycklr
+ # not implemented
+ title_length: ~
+ # not implemented, dl/dt/dd happens now
+ excerpt_style: dl|p|br|ul
+ # not implemented, ul/li happens now
+ title_style: ul|p|br
+ # this is hardcoded for now
+ max_images: 1
  feed_title_tag: h4
  dtd: xhtml1-transitional.dtd
  feeds:
@@ -845,7 +879,7 @@ Ashley Pond V, C<< <ashley@cpan.org> >>.
 
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
 
-If abutting tags stripped tags are flow level, insert a newline...? Define the behavior in the config so even a E<para> or something could be inserted. Turn C<< <br/>s >> into newlines?
+If abutting tags stripped tags are flow level, insert a newline...? Define the behavior in the config so even a E<para> or something could be inserted. Turn C<< <br/>s >> into newlines? Use C<canTighten> and C<isPhraseMarkup> from L<HTML::Tagset> to make these choices. Maybe this is where the DTDs should live too...?
 
 Test timed out feeds.
 
@@ -893,16 +927,13 @@ Stevan Little, Shawn M Moore, and Benjamin Trott. I had no idea how cool L<Moose
 
 =head1 SEE ALSO
 
-L<XML::Feed>, L<XML::Feed::Entry>, L<Mouse>/L<Moose>, L<XML::LibXML>,
-L<Template>, L<YAML>, L<HTML::Truncate>, L<DateTime>, L<Scalar::Util>,
-L<URI>, L<Encode>.
+L<XML::Feed>, L<XML::Feed::Entry>, L<Mouse>/L<Moose>, L<XML::LibXML>, L<Template>, L<YAML>, L<HTML::Truncate>, L<DateTime>, L<Scalar::Util>, L<URI>, L<Encode>.
 
 =head1 COPYRIGHT & LICENSE
 
 Copyright (E<copy>) 2008 Ashley Pond V.
 
-This program is free software; you can redistribute it or modify it or
-both under the same terms as Perl itself.
+This program is free software; you can redistribute it or modify it or both under the same terms as Perl itself.
 
 =head1 DISCLAIMER OF WARRANTY
 
@@ -928,3 +959,23 @@ such holder or other party has been advised of the possibility of such
 damages.
 
 =cut
+
+
+Save for title_length stuff...
+
+has "title_length" => ( is => "ro",
+                        isa => "Int",
+                        default => sub { 0 },
+                        );
+
+has "ellipsis" => ( is => "ro",
+                    isa => "Str",
+                    default => sub { "" },
+                    );
+
+    if ( $self->title_length and length($self->{_title}) > $self->title_length )
+    {
+        $self->{_title} = substr($self->{_title}, 0, $self->title_length);
+        $self->{_title} =~ s/[\s[:punc:]]+\z//; # Trim punctuation and spaces off end.
+        $self->{_title} .= $self->ellipsis;
+    }
