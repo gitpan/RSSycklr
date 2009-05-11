@@ -33,4 +33,4 @@ requires:
   XML::Feed: 0
   XML::LibXML: 0
   YAML: 0
-version: 0.10
+version: 0.11

@@ -13,7 +13,7 @@ use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
 use Encode;
 
-our $VERSION = "0.10";
+our $VERSION = "0.11";
 
 has "keep_tags" => (
                     is => "rw",
@@ -45,7 +45,7 @@ has "tt2" => ( is => "ro",
 # No type so it can take any Template takes
 has "template" => ( is => "rw",
                     lazy => 1, # not always used
-                    default => sub { \<<"                    .";
+                    default => sub { \<<"TT_TEMPLATE";
 <div class="[% css_class || "rssycklr" %]">
 [%- FOR feed IN rssycklr.feeds() %]
 [%-NEXT UNLESS feed.count %]
@@ -58,7 +58,10 @@ has "template" => ( is => "rw",
   [%-FOR entry IN feed.entries %]
 <dt><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></dt>
 <dd>
-[%-entry.lede %]
+[% entry.lede %]
+<div class="datetime">[% modified = entry.modified ? entry.modified : entry.feed.modified %]
+[% modified.ymd(".") %] [% modified.hour_12 %]:[% modified.min %][% modified.am_or_pm %]
+</div>
 </dd>
   [%-END %]
 </dl>
@@ -72,7 +75,7 @@ has "template" => ( is => "rw",
 </div>
 [%-END %]
 </div>
-                    .
+TT_TEMPLATE
                     },
                   );
 
@@ -200,14 +203,14 @@ sub next : method {
 
     my $xml_feed;
     my $ok = eval {
-        local $SIG{ALRM} = sub { croak "Feed request timeout\n" };
+        local $SIG{ALRM} = sub { die "Feed request timeout: $uri\n" };
         alarm( $info->{timeout} || $self->config->{timeout} || 10 );
-                $xml_feed = XML::Feed->parse($uri)
-                    or croak("Could not parse $uri, ", XML::Feed->errstr);
+        $xml_feed = XML::Feed->parse($uri)
+            or croak("Could not parse $uri, ", XML::Feed->errstr);
         alarm(0);
         1;
     };
-    alarm(0); # Racing parsing fatals can happen in the XML::Feed space.
+    alarm(0); # Racing parsing fatals can happen in the XML::Feed space(?).
     unless ( $ok == 1 )
     {
         carp $@ || ( "Unknown error parsing " . $info->{uri} );
@@ -436,7 +439,7 @@ use HTML::Entities "decode_entities";
 has "xml_feed" => ( is => "ro",
                     required => 1,
                     isa => "Object",
-                    handles => [qw( tagline link copyright
+                    handles => [qw( tagline link copyright modified
                                     author generator language )],
                     );
 
@@ -466,9 +469,9 @@ sub title : method {
 }
 
 
-
 package RSSycklr::Feed::Entry;
 use Moose;
+use DateTime;
 
 has "xml_feed_entry" => ( is => "ro",
                           required => 1,
@@ -496,7 +499,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.10
+0.11
 
 =head1 SYNOPSIS
 
@@ -860,6 +863,10 @@ The image handling is probably the most important part. Feeds might return huge 
    color:#039!important;
    text-decoration:none;
  }
+ .rssycklr .datetime {
+   color: #445;
+   font-size: 80%;
+ }
  .rssycklr a.readmore {
    text-decoration:none;
    font-size: 90%;
@@ -876,6 +883,8 @@ The image handling is probably the most important part. Feeds might return huge 
 Ashley Pond V, C<< <ashley@cpan.org> >>.
 
 =head1 TODO
+
+C<as_is> flag?
 
 Pass through the Pod to make it a bit more useful and less redundant on config stuff.
 
@@ -931,7 +940,7 @@ L<XML::Feed>, L<XML::Feed::Entry>, L<Mouse>/L<Moose>, L<XML::LibXML>, L<Template
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright (E<copy>) 2008 Ashley Pond V.
+Copyright (E<copy>) 2008-2009 Ashley Pond V.
 
 This program is free software; you can redistribute it or modify it or both under the same terms as Perl itself.
 

@@ -22,7 +22,7 @@ requires "Getopt::Long";
 requires "File::ShareDir";
 requires "Hash::Merge::Simple";
 
-system('pod2text lib/Yesh.pm > README');
+system('pod2text lib/RSSycklr.pm > README');
 
 install_script "bin/rssycklr";
 install_share "dtd";

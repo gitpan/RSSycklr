@@ -1,5 +1,10 @@
 Revision history for RSSycklr
 
+0.11    20090510
+        - Fixed broken README.
+        - Put URI in timeout message.
+        - Added datetime in default template.
+
 0.10    20090509
         - Biggish change: s/(?<=Mo)u(?=se)/o/;
         - Updated error on feed parse failure to include URI.
