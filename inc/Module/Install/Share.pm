@@ -2,35 +2,80 @@
 package Module::Install::Share;
 
 use strict;
-use Module::Install::Base;
+use Module::Install::Base ();
+use File::Find ();
+use ExtUtils::Manifest ();
 
-use vars qw{$VERSION $ISCORE @ISA};
+use vars qw{$VERSION @ISA $ISCORE};
 BEGIN {
-	$VERSION = '0.75';
+	$VERSION = '1.00';
+	@ISA     = 'Module::Install::Base';
 	$ISCORE  = 1;
-	@ISA     = qw{Module::Install::Base};
 }
 
 sub install_share {
-	my ($self, $dir) = @_;
-
-	if ( ! defined $dir ) {
-		die "Cannot find the 'share' directory" unless -d 'share';
-		$dir = 'share';
+	my $self = shift;
+	my $dir  = @_ ? pop   : 'share';
+	my $type = @_ ? shift : 'dist';
+	unless ( defined $type and $type eq 'module' or $type eq 'dist' ) {
+		die "Illegal or invalid share dir type '$type'";
+	}
+	unless ( defined $dir and -d $dir ) {
+    		require Carp;
+		Carp::croak("Illegal or missing directory install_share param");
 	}
 
-	# If the module name and dist name don't math,
-	# the dist_dir won't subsequently work.
-	# my $module_name = $self->name;
-	# $module_name =~ s/-/::/g;
-	# if ( defined $self->module_name and $module_name ne $self->module_name ) {
-	#	die "For File::ShareDir::dist_dir to work, the module and distribution names much match";
-	# }
+	# Split by type
+	my $S = ($^O eq 'MSWin32') ? "\\" : "\/";
 
+	my $root;
+	if ( $type eq 'dist' ) {
+		die "Too many parameters to install_share" if @_;
+
+		# Set up the install
+		$root = "\$(INST_LIB)${S}auto${S}share${S}dist${S}\$(DISTNAME)";
+	} else {
+		my $module = Module::Install::_CLASS($_[0]);
+		unless ( defined $module ) {
+			die "Missing or invalid module name '$_[0]'";
+		}
+		$module =~ s/::/-/g;
+
+		$root = "\$(INST_LIB)${S}auto${S}share${S}module${S}$module";
+	}
+
+	my $manifest = -r 'MANIFEST' ? ExtUtils::Manifest::maniread() : undef;
+	my $skip_checker = $ExtUtils::Manifest::VERSION >= 1.54
+		? ExtUtils::Manifest::maniskip()
+		: ExtUtils::Manifest::_maniskip();
+	my $postamble = '';
+	my $perm_dir = eval($ExtUtils::MakeMaker::VERSION) >= 6.52 ? '$(PERM_DIR)' : 755;
+	File::Find::find({
+		no_chdir => 1,
+		wanted => sub {
+			my $path = File::Spec->abs2rel($_, $dir);
+			if (-d $_) {
+				return if $skip_checker->($File::Find::name);
+				$postamble .=<<"END";
+\t\$(NOECHO) \$(MKPATH) "$root${S}$path"
+\t\$(NOECHO) \$(CHMOD) $perm_dir "$root${S}$path"
+END
+			}
+			else {
+				return if ref $manifest
+						&& !exists $manifest->{$File::Find::name};
+				return if $skip_checker->($File::Find::name);
+				$postamble .=<<"END";
+\t\$(NOECHO) \$(CP) "$dir${S}$path" "$root${S}$path"
+END
+			}
+		},
+	}, $dir);
+
+	# Set up the install
 	$self->postamble(<<"END_MAKEFILE");
 config ::
-\t\$(NOECHO) \$(MOD_INSTALL) \\
-\t\t"$dir" \$(INST_AUTODIR)
+$postamble
 
 END_MAKEFILE
 
@@ -48,4 +93,4 @@ END_MAKEFILE
 
 __END__
 
-#line 109
+#line 154

@@ -4,132 +4,129 @@ no warnings "uninitialized";
 use Carp qw( carp confess croak );
 use YAML ();
 use XML::Feed ();
-use HTML::Truncate;
-use XML::LibXML;
+use HTML::Truncate ();
+use HTML::TokeParser::Simple ();
+use XML::LibXML ();
 use DateTime ();
-use Scalar::Util qw(blessed);
+use Scalar::Util qw( blessed );
 use URI ();
 use File::ShareDir ();
 use Hash::Merge::Simple qw( merge );
-use Encode;
+use Encode qw( decode_utf8 );
 
-our $VERSION = "0.11";
+our $VERSION = "0.12";
 
-has "keep_tags" => (
-                    is => "rw",
-                    isa => "HashRef",
-                    default => sub {
-                        return { map {; $_ => 1 } qw( del ins i u b em
-                                                      strong abbr br img dfn
-                                                      acronym q sub sup cite
-                                                      code kbd samp strong var
-                                                      strike s tt a )
-                                 };
-                    },
-                    );
+has "keep_tags" =>
+    is => "rw",
+    isa => "HashRef",
+    default => sub {
+        return { map {; $_ => 1 } qw( del ins i u b em
+                                      strong abbr br img dfn
+                                      acronym q sub sup cite
+                                      code kbd samp strong var
+                                      strike s tt a )
+               };
+    },
+    ;
 
-has "tt2" => ( is => "ro",
-               lazy => 1, # not always used
-               isa => "Template",
-               default => sub {
-                   require Template;
-                   require Template::Provider::Encoding;
-                   require Template::Stash::ForceUTF8;
-                   Template->new({
-                                  STASH => Template::Stash::ForceUTF8->new,
-                                 });
-               },
-               handles => [qw( process )],
-             );
+has "tt2" =>
+    is => "ro",
+    lazy => 1, # not always used
+    isa => "Template",
+    default => sub {
+        require Template;
+        Template->new({
+                       ENCODING => 'UTF-8',
+                       DEFAULT_ENCODING => 'UTF-8',
+                      });
+    },
+    handles => [qw( process )],
+    ;
 
 # No type so it can take any Template takes
-has "template" => ( is => "rw",
-                    lazy => 1, # not always used
-                    default => sub { \<<"TT_TEMPLATE";
+has "template" =>
+    is => "rw",
+    lazy => 1, # not always used
+    default => sub { \<<"TT_TEMPLATE";
 <div class="[% css_class || "rssycklr" %]">
-[%- FOR feed IN rssycklr.feeds() %]
+[%-FOR feed IN rssycklr.feeds() %]
 [%-NEXT UNLESS feed.count %]
-<div>
-<[% feed_title_tag || "h4" %]>
-<a href="[%-feed.link | html %]">[%-FILTER html; feed.title_override || feed.title; END %]</a>
-</[% feed_title_tag || "h4" %]>
-[%-IF feed.entries.0.lede %]
-<dl>
-  [%-FOR entry IN feed.entries %]
-<dt><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></dt>
-<dd>
-[% entry.lede %]
-<div class="datetime">[% modified = entry.modified ? entry.modified : entry.feed.modified %]
-[% modified.ymd(".") %] [% modified.hour_12 %]:[% modified.min %][% modified.am_or_pm %]
-</div>
-</dd>
-  [%-END %]
-</dl>
-[%-ELSE %]
-<ul>
-  [%-FOR entry IN feed.entries %]
-    <li><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></li>
-  [%-END %]
-</ul>
-[%-END %]
-</div>
-[%-END %]
+  <div>
+    <[% feed_title_tag || "h4" %]>
+      <a href="[%-feed.link | html %]">[%-FILTER html; feed.title_override || feed.title; END %]</a>
+    </[% feed_title_tag || "h4" %]>
+  [%~IF feed.entries.0.lede %]
+    <dl>
+      [%-FOR entry IN feed.entries %]
+      <dt><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></dt>
+      <dd>
+      [% entry.lede %]
+        <span class="datetime">[% modified = entry.modified ? entry.modified : entry.feed.modified %]
+[% modified.ymd(".") %] [% modified.hour_12 %]:[% modified.min | format('%02d') %][% modified.am_or_pm %]
+        </span>
+      </dd>
+      [%~END %]
+    </dl>
+    [%~ELSE %]
+  <ul>
+    [%-FOR entry IN feed.entries %]
+      <li><a href="[%-entry.link | html %]">[%-entry.title | html %]</a></li>
+    [%~END %]
+  </ul>
+  [%~END %]
+  </div>
+[%~END %]
 </div>
 TT_TEMPLATE
-                    },
-                  );
+                 },
+    ;
 
-has "xml_parser" => ( is => "rw",
-                      isa => "XML::LibXML",
-                      default => sub {
-                          my $libxml = XML::LibXML->new();
-                          $libxml->recover(1);
-                          $libxml->recover_silently(1);
-                          return $libxml;
-                        },
-                      handles => [qw( parse_html_string recover_silently recover )],
-                      );
+has "xml_parser" =>
+    is => "rw",
+    isa => "XML::LibXML",
+    default => sub {
+        my $libxml = XML::LibXML->new();
+        $libxml->keep_blanks(1);
+        $libxml->line_numbers(1);
+        $libxml->complete_attributes(1);
+        $libxml->clean_namespaces(1);
+        $libxml->no_network(1);
+        $libxml->recover_silently(1);
+        return $libxml;
+    },
+    handles => [qw( parse_html_string )],
+    ;
 
-has "dtd" => ( is => "rw",
-               isa => "XML::LibXML::Dtd",
-             );
+has "dtd" =>
+    is => "rw",
+    isa => "XML::LibXML::Dtd",
+    ;
 
-has "truncater" => ( is => "rw",
-                     isa => "Object", # "HTML::Truncate",
-                     default => sub {
-                         HTML::Truncate->new(repair => 1,
-                                             on_space => 1,
-                                             chars => 170);
-                       },
-                     handles => [ qw( truncate ) ],
-                     );
+has "truncater" =>
+    is => "rw",
+    isa => "Object", # "HTML::Truncate",
+    default => sub {
+        HTML::Truncate->new(repair => 1,
+                            on_space => 1,
+                            chars => 170);
+    },
+    handles => [ qw( truncate ) ],
+    ;
 
-has "feeds" => ( is => "ro",
-                 auto_deref => 1,
-                 isa => "ArrayRef",
-                 default => sub { [] },
-                 );
+has "feeds" =>
+    is => "ro",
+    auto_deref => 1,
+    isa => "ArrayRef",
+    default => sub { [] },
+    ;
 
 before "feeds" => sub {
     my $self = shift;
-#    return 1 unless @{$self->config->{feeds}}; # cache
     while ( my $feed = $self->next() )
     {
         push @{$self->{feeds}}, $feed;
     }
 };
-
-# Might like this but the entry needs to know its parent...
-#sub entries : method {
-#    my $self = shift;
-#    my @entry;
-#    for my $feed ( $self->feeds() )
-#    {
-#        my $copy = $feed; # Not sure this is necessary.
-#        weaken($copy);
-#...        $_->
-#    }
-#}
 
 sub BUILD {
     my ( $self, $args ) = @_;
@@ -137,7 +134,7 @@ sub BUILD {
     $self->load_config(delete $args->{load_config}) if $args->{load_config};
 }
 
-sub config : method {
+sub config {
     my $self = shift;
     $self->{_config} ||= $self->_default_config();
     my $hash = shift || return $self->{_config};
@@ -145,7 +142,7 @@ sub config : method {
     return $self->{_config};
 }
 
-sub load_config : method {
+sub load_config {
     my $self = shift;
     my $src = shift || return;
     my $info = ref($src) ?
@@ -158,7 +155,7 @@ sub load_config : method {
     return $self;
 }
 
-sub add_feeds : method {
+sub add_feeds {
     my $self = shift;
     my $feeds = shift;
     my $old = scalar @{$self->config->{feeds} || []};
@@ -172,7 +169,7 @@ sub add_feeds : method {
     return ( $old + $new ) == @{$self->config->{feeds}};
 }
 
-sub as_string : method {
+sub as_string {
     my $self = shift;
     my $out = "";
     $self->process($self->template, { rssycklr => $self }, \$out)
@@ -189,7 +186,7 @@ sub as_string : method {
     }
 }
 
-sub next : method {
+sub next {
     my $self = shift;
     if ( $self->_maxed_out )
     {
@@ -244,7 +241,8 @@ sub next : method {
         unless ( $title_only )
         {
             next ENTRY if $entry->content->body !~ /\S/;
-            my $xhtml = $self->parse_html_string( $entry->content->body );
+            my $xhtml = $self->html_to_dom( $entry->content->body )
+                or die "Couldn't parse ", $entry->content->body;
             $self->_strip_attributes($xhtml);
             $self->_strip_tags($xhtml);
             $self->_handle_images($xhtml, $entry);
@@ -284,18 +282,17 @@ sub next : method {
             my $content = "";
             $content .= $_->serialize(1) for $body->childNodes();
             my $more = join("",
-                            Encode::decode_utf8($self->config->{ellipsis}),
+                            decode_utf8($self->config->{ellipsis}),
                             '<a class="readmore" href="',
                             $entry->link,
                             '">', 
-                            Encode::decode_utf8($self->config->{read_more}),
+                            decode_utf8($self->config->{read_more}),
                             '</a>'
                             );
             my $output = $self->truncate( $content,
                                           $excerpt_length,
                                           $more );
             $output =~ s/\s\s+/ /g;
-#            $entry{lede} = Encode::encode("utf8", $output);
             $entry{lede} = $output;
         }
         $entry{xml_feed_entry} = $entry;
@@ -316,7 +313,42 @@ sub next : method {
     return $feed;
 }
 
-sub _maxed_out : method {
+sub html_to_dom {
+    my $self = shift;
+    my $html = shift || return;
+    my $renew = "";
+    my $p = HTML::TokeParser::Simple->new(\$html);
+    no warnings "uninitialized";
+    while ( my $token = $p->get_token )
+    {
+        if ( $token->is_text
+             or not $HTML::Tagset::isKnown{ $token->get_tag } )
+        {
+            my $txt = HTML::Entities::decode_entities($token->as_is);
+            $txt =~ s/[^[:print:]]+/ /g; # kill unprintables for a space.
+            $renew .= $txt;
+        }
+        elsif ( $token->get_tag =~ /\Abr\b/i )
+        {
+            $renew .= "\n";
+        }
+        elsif ( $HTML::Tagset::canTighten{ $token->get_tag } )
+        {
+            # Replace block-like tags with \n if we have content
+            # already and not more than twice consecutively.
+            $renew .= $token->as_is;
+        }
+        else
+        {
+            $renew .= $token->as_is;
+        }
+    }
+    $self->parse_html_string(<<"HTML");
+<html><head><title>Untitled</title></head><body>$renew</body></html>
+HTML
+}
+
+sub _maxed_out {
     my $self = shift;
     if ( $self->config->{max_feeds}
          and
@@ -410,7 +442,7 @@ sub _strip_tags {
     return 1;
 }
 
-sub _default_config : method {
+sub _default_config {
     return {
         excerpt_length => 150,
         ellipsis => "\x{2026}", # chr(8230),
@@ -431,43 +463,49 @@ sub _default_config : method {
     };
 }
 
+__PACKAGE__->meta->make_immutable();
+
 package RSSycklr::Feed;
 use Moose;
-use HTML::Entities "decode_entities";
-# require Template;
+use HTML::Entities qw( decode_entities );
+use Encode qw( decode_utf8 );
 
-has "xml_feed" => ( is => "ro",
-                    required => 1,
-                    isa => "Object",
-                    handles => [qw( tagline link copyright modified
-                                    author generator language )],
-                    );
+has "xml_feed" =>
+    is => "ro",
+    required => 1,
+    isa => "Object",
+    handles => [qw( tagline link copyright modified
+                    author generator language )],
+    ;
 
-has "entries" => ( is => "ro",
-                   lazy => 1,
-                   default => sub { [] },
-                   required => 1,
-                   auto_deref => 1,
-                   isa => "ArrayRef",
-                   );
+has "entries" =>
+    is => "ro",
+    lazy => 1,
+    default => sub { [] },
+    required => 1,
+    auto_deref => 1,
+    isa => "ArrayRef",
+    ;
 
-has "title_override" => ( is => "ro",
-                          isa => "Str",
-                          default => sub { "" },
-                          );
+has "title_override" =>
+    is => "ro",
+    isa => "Str",
+    default => sub { "" },
+    ;
 
-sub count : method {
+sub count {
     scalar @{+shift->entries};
 }
 
-sub title : method {
+sub title {
     my $self = shift;
     return $self->{_title} if $self->{_title};
-    # Try to *guarantee* it doesn't return entities.
+    # Try to guarantee it doesn't return entities.
     $self->{_title} = decode_entities(decode_entities($self->xml_feed->title));
-    $self->{_title} = Encode::decode_utf8( $self->{_title} );
+    $self->{_title} = decode_utf8( $self->{_title} );
 }
 
+__PACKAGE__->meta->make_immutable();
 
 package RSSycklr::Feed::Entry;
 use Moose;
@@ -489,6 +527,8 @@ has "feed" => ( is => "ro",
                 isa => "RSSycklr::Feed",
               );
 
+__PACKAGE__->meta->make_immutable();
+
 1;
 
 __END__
@@ -499,7 +539,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
 
 =head1 VERSION
 
-0.11
+0.12
 
 =head1 SYNOPSIS
 
@@ -511,7 +551,7 @@ RSSycklr - (beta) Highly configurable recycling of syndication (RSS/Atom) feeds 
  my @feeds = ({ uri => "http://www.xkcd.com/atom.xml",
                 max_display => 1, },
               { uri => "http://feeds.theonion.com/theonion/daily" },
-              { title_override => "OH NOES, IZ TEH DED",
+              { title_override => "O NOES, IZ TEH DED",
                 uri => "http://rss.news.yahoo.com/rss/obits", });
  
  my $rsklr = RSSycklr->new();
@@ -612,6 +652,10 @@ The C<template> that will be passed to L<Template/process>. It can be a string (
 =item B<xml_parser>
 
 The L<XML::LibXML> object.
+
+=item B<html_to_dom>
+
+Passes an HTML fragment through some L<HTML::TokeParser::Simple> sanity cleanup and returns an L<XML::LibXML::Document>. This is an 
 
 =item B<truncater>
 
@@ -900,13 +944,13 @@ Text only option for ledes? Makes it easier to work on that setting C<keep_tags>
 
 Put a name field for feeds to override the feed supplied title.
 
-Straighten out and make the validation controllable.
+Make the validation controllable.
 
 Make a master timeout vs a feed level timeout? No...
 
 Make utf8 a settable...?
 
-Move all the DTD handling, and all the other historical ones, HTML 1 and up, into a real distribution...? WWW::DTD?
+Move all the DTD handling, and all the other historical ones, HTML 1 and up, into a real distribution...? Ikegami's catalog stuff?
 
 Make attribute filter configurable.
 
@@ -918,7 +962,7 @@ Implement anything in the configuration example which reads, "not implemented." 
 
 Submit a patch, or ticket, to Benjamin for a content_type L<XML::Feed::Entry>. We're just assuming it's HTML.
 
-C<< Template->process >> should probably have a C<before> call to allow the config to be merged into the top of the template data.
+C<< Template-E<gt>process >> should probably have a C<before> call to allow the config to be merged into the top of the template data.
 
 Make image count configurable.
 

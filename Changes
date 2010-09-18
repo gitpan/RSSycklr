@@ -1,5 +1,11 @@
 Revision history for RSSycklr
 
+0.12    20100917
+        - Added time to datetime timestamps.
+        - Moved to github: http://github.com/pangyre/p5-rssycklr
+        - Bunch of code layout tweaks.
+        - ->meta->make_immutable.
+
 0.11    20090510
         - Fixed broken README.
         - Put URI in timeout message.

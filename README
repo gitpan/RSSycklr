@@ -3,26 +3,26 @@ NAME
     (RSS/Atom) feeds into tailored, guaranteed XHTML fragments.
 
 VERSION
-    0.11
+    0.12
 
 SYNOPSIS
      use strict;
      use warnings;
      use RSSycklr;
      use Encode;
-     
- my @feeds = ({ uri => "http://www.xkcd.com/atom.xml",
+ 
+     my @feeds = ({ uri => "http://www.xkcd.com/atom.xml",
                     max_display => 1, },
                   { uri => "http://feeds.theonion.com/theonion/daily" },
-                  { title_override => "OH NOES, IZ TEH DED",
+                  { title_override => "O NOES, IZ TEH DED",
                     uri => "http://rss.news.yahoo.com/rss/obits", });
-     
- my $rsklr = RSSycklr->new();
-     
- $rsklr->config({ feeds => \@feeds,
+ 
+     my $rsklr = RSSycklr->new();
+ 
+     $rsklr->config({ feeds => \@feeds,
                       title_only => 1 });
-     
- while ( my $feed = $rsklr->next() )
+ 
+     while ( my $feed = $rsklr->next() )
      {
          print Encode::encode_utf8( $feed->title_override || $feed->title ), "\n";
          for my $entry ( $feed->entries )
@@ -132,6 +132,10 @@ METHODS
 
     xml_parser
         The XML::LibXML object.
+
+    html_to_dom
+        Passes an HTML fragment through some HTML::TokeParser::Simple sanity
+        cleanup and returns an XML::LibXML::Document. This is an
 
     truncater
         The HTML::Truncate object.
@@ -371,14 +375,14 @@ TODO
 
     Put a name field for feeds to override the feed supplied title.
 
-    Straighten out and make the validation controllable.
+    Make the validation controllable.
 
     Make a master timeout vs a feed level timeout? No...
 
     Make utf8 a settable...?
 
     Move all the DTD handling, and all the other historical ones, HTML 1 and
-    up, into a real distribution...? WWW::DTD?
+    up, into a real distribution...? Ikegami's catalog stuff?
 
     Make attribute filter configurable.
 
