@@ -39,4 +39,4 @@ requires:
 resources:
   license: http://dev.perl.org/licenses/
   repository: git@github.com:pangyre/p5-rssycklr.git
-version: 0.13
+version: 0.14
