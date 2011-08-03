@@ -16,7 +16,7 @@ use File::Spec;
 use Encode;
 use Capture::Tiny "capture";
 
-our $VERSION = "0.14";
+our $VERSION = "0.15";
 
 has "keep_tags" =>
     is => "rw",
@@ -481,7 +481,7 @@ sub _default_config {
 __PACKAGE__->meta->make_immutable();
 
 package RSSycklr::Feed;
-use Moose;
+use Mouse;
 use HTML::Entities qw( decode_entities );
 use Encode qw( decode_utf8 );
 
@@ -523,7 +523,7 @@ sub title {
 __PACKAGE__->meta->make_immutable();
 
 package RSSycklr::Feed::Entry;
-use Moose;
+use Mouse;
 use DateTime;
 
 has "xml_feed_entry" => ( is => "ro",

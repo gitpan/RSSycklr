@@ -1,4 +1,7 @@
 Revision history for RSSycklr
+0.15    20110802
+        - Double derp. Missed Moose in the subpackages.
+
 0.14    20110730
         - Derp. capture blocked return value.
 
